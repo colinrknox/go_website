@@ -3,54 +3,79 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/autotls"
 	"io/ioutil"
 	"path/filepath"
 	"net/http"
-	"strings"
+	"encoding/json"
+	"os"
 )
 
-type post struct {
+type Post struct {
 	Title    string `json:"title"`
-	Filename string `json:"filename"`
+	Date string `json:"date"`
+	ImageUrl string `json:"imgUrl"`
+	Contents string `json:"contents"`
 }
 
 func main() {
 	router := gin.Default()
 
-	router.Static("/static", "/home/ubuntu/public")
+	router.Static("/img", "/home/ubuntu/public")
 
 	router.GET("/posts", getPosts)
 
-	router.Run(":80")
+	autotls.Run(router, "api.cknox.dev")
 }
 
 func getPosts(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, findPosts())
 }
 
-func findPosts() []post {
-	var posts []post
+func findPosts() []Post {
+	var posts []Post
+	dir := "/home/ubuntu/public"
 
-	files, err := ioutil.ReadDir("/home/ubuntu/public")
+	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	for _, f := range files {
-		filename := f.Name()
-
-		if filepath.Ext(filename) == ".md" {
-			title := mapToTitle(filename)
-			posts = append(posts, post{Title: title, Filename: filename})
+		if filepath.Ext(f.Name()) == ".json" {
+			filePath := filepath.Join(dir, f.Name())
+			post, err := processJsonFile(filePath)
+			if err != nil {
+				fmt.Println("Error processing JSON file: ", err)
+				return posts
+			}
+			posts = append(posts, post)
 		}
 	}
 
 	return posts
 }
 
-func mapToTitle(filename string) string {
-	title := strings.TrimSuffix(filename, ".md")
+func processJsonFile(filePath string) (Post, error) {
+	var post Post
 
-	title = strings.ReplaceAll(title, "_", " ")
-	return title
+	file, err := os.Open(filePath)
+	if err != nil {
+		return post, err
+	}
+	defer file.Close()
+
+	byteValue, err := ioutil.ReadAll(file)
+	if err != nil {
+		return post, err
+	}
+
+	err = json.Unmarshal(byteValue, &post)
+	if err != nil {
+		return post, err
+	}
+
+	return post, nil
 }
+
+
