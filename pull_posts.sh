@@ -2,7 +2,7 @@
 
 REPO_DIR="/home/ubuntu/website_posts"
 TARGET_DIR="/home/ubuntu/public"
-LOG_FILE="/home/ubuntu/scripts/batch.log"
+LOG_FILE="/home/ubuntu/logs/batch.log"
 
 touch "$LOG_FILE"
 cd "$REPO_DIR"
