@@ -1,14 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/autotls"
+	"github.com/gin-contrib/cors"
 	"io/ioutil"
 	"path/filepath"
 	"net/http"
 	"encoding/json"
 	"os"
+	"log"
 )
 
 type Post struct {
@@ -19,7 +20,24 @@ type Post struct {
 }
 
 func main() {
+	logFile, err := os.OpenFile("web_server.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666);
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+
+	gin.SetMode(gin.ReleaseMode)
+
 	router := gin.Default()
+
+	log.Println("Setting up server config")
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:3000", "https://cknox.dev", "https://www.cknox.dev"}
+	config.AllowMethods = []string{"GET"}
+	config.AllowHeaders = []string{"Origin", "Content-type", "Accept"}
+
+	router.Use(cors.New(config))
 
 	router.Static("/img", "/home/ubuntu/public")
 
@@ -38,7 +56,9 @@ func findPosts() []Post {
 
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		fmt.Println(err)
+		log.Println("Error reading JSON directory")
+		log.Println(err)
+		return posts
 	}
 
 	for _, f := range files {
@@ -46,10 +66,10 @@ func findPosts() []Post {
 			filePath := filepath.Join(dir, f.Name())
 			post, err := processJsonFile(filePath)
 			if err != nil {
-				fmt.Println("Error processing JSON file: ", err)
-				return posts
+				log.Println("Error processing JSON file: ", err)
+			} else {
+				posts = append(posts, post)
 			}
-			posts = append(posts, post)
 		}
 	}
 
@@ -61,17 +81,23 @@ func processJsonFile(filePath string) (Post, error) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
+		log.Println("Error opening JSON file ", filePath)
+		log.Println(err)
 		return post, err
 	}
 	defer file.Close()
 
 	byteValue, err := ioutil.ReadAll(file)
 	if err != nil {
+		log.Println("Error reading JSON file ", file.Name())
+		log.Println(err)
 		return post, err
 	}
 
 	err = json.Unmarshal(byteValue, &post)
 	if err != nil {
+		log.Println("Error decoding JSON file ", file.Name())
+		log.Println(err)
 		return post, err
 	}
 
